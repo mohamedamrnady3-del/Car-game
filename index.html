@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>لعبة العربيات</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #1a1a2e; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: Arial; }
+canvas { border: 2px solid #gold; border-radius: 10px; }
+#ui { color: white; text-align: center; margin-bottom: 10px; font-size: 18px; }
+#controls { display: flex; flex-wrap: wrap; justify-content: center; margin-top: 10px; gap: 10px; }
+.btn { width: 70px; height: 70px; background: rgba(255,255,255,0.2); color: white; border: 2px solid white; border-radius: 15px; font-size: 25px; cursor: pointer; user-select: none; }
+.btn:active { background: rgba(255,255,255,0.5); }
+</style>
+</head>
+<body>
+<div id="ui">
+  <span>⛽ بنزين: <span id="fuel">100</span>%</span> &nbsp;
+  <span>💰 فلوس: <span id="score">0</span></span> &nbsp;
+  <span>🏁 مستوى: <span id="level">1</span></span>
+</div>
+<canvas id="game" width="360" height="500"></canvas>
+<div id="controls">
+  <button class="btn" id="btnLeft">⬅️</button>
+  <button class="btn" id="btnGas">⛽</button>
+  <button class="btn" id="btnBrake">🛑</button>
+  <button class="btn" id="btnRight">➡️</button>
+</div>
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+let car = { x: 160, y: 400, w: 40, h: 60, speed: 0, fuel: 100, score: 0, level: 1 };
+let obstacles = [];
+let keys = {};
+let gameOver = false;
+let distance = 0;
+
+function spawnObstacle() {
+  obstacles.push({
+    x: Math.random() * 300 + 20,
+    y: -60,
+    w: 40,
+    h: 60,
+    color: ['#e74c3c','#3498db','#2ecc71'][Math.floor(Math.random()*3)]
+  });
+}
+
+function drawRoad() {
+  ctx.fillStyle = '#555';
+  ctx.fillRect(0, 0, 360, 500);
+  ctx.fillStyle = '#333';
+  ctx.fillRect(30, 0, 300, 500);
+  ctx.fillStyle = '#fff';
+  for(let i = 0; i < 10; i++) {
+    ctx.fillRect(178, (i * 60 + distance % 60), 4, 40);
+  }
+}
+
+function drawCar(x, y, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.roundRect(x, y, 40, 60, 8);
+  ctx.fill();
+  ctx.fillStyle = '#87CEEB';
+  ctx.fillRect(x+5, y+10, 30, 20);
+  ctx.fillStyle = '#FFD700';
+  ctx.fillRect(x+5, y+2, 12, 8);
+  ctx.fillRect(x+23, y+2, 12, 8);
+}
+
+function update() {
+  if(gameOver) return;
+
+  if(keys['left'] && car.x > 30) car.x -= 3;
+  if(keys['right'] && car.x < 290) car.x += 3;
+  if(keys['gas'] && car.fuel > 0) {
+    car.speed = Math.min(car.speed + 0.2, 8);
+    car.fuel = Math.max(car.fuel - 0.1, 0);
+  } else {
+    car.speed = Math.max(car.speed - 0.1, 0);
+  }
+  if(keys['brake']) car.speed = Math.max(car.speed - 0.5, 0);
+
+  distance += car.speed;
+  car.score += car.speed * 0.1;
+  car.level = Math.floor(car.score / 100) + 1;
+
+  if(Math.random() < 0.02 + car.level * 0.005) spawnObstacle();
+
+  obstacles.forEach(o => o.y += 3 + car.level);
+  obstacles = obstacles.filter(o => o.y < 560);
+
+  obstacles.forEach(o => {
+    if(car.x < o.x + o.w && car.x + car.w > o.x &&
+       car.y < o.y + o.h && car.y + car.h > o.y) {
+      gameOver = true;
+    }
+  });
+
+  document.getElementById('fuel').textContent = Math.floor(car.fuel);
+  document.getElementById('score').textContent = Math.floor(car.score);
+  document.getElementById('level').textContent = car.level;
+}
+
+function draw() {
+  drawRoad();
+  obstacles.forEach(o => drawCar(o.x, o.y, o.color));
+  drawCar(car.x, car.y, '#FFD700');
+
+  if(gameOver) {
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillRect(0, 0, 360, 500);
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 40px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('Game Over!', 180, 220);
+    ctx.font = '25px Arial';
+    ctx.fillText('فلوسك: ' + Math.floor(car.score), 180, 270);
+    ctx.fillText('اضغط للعب تاني', 180, 320);
+  }
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+canvas.addEventListener('click', () => {
+  if(gameOver) {
+    car = { x: 160, y: 400, w: 40, h: 60, speed: 0, fuel: 100, score: 0, level: 1 };
+    obstacles = [];
+    gameOver = false;
+    distance = 0;
+  }
+});
+
+document.getElementById('btnLeft').addEventListener('touchstart', () => keys['left'] = true);
+document.getElementById('btnLeft').addEventListener('touchend', () => keys['left'] = false);
+document.getElementById('btnRight').addEventListener('touchstart', () => keys['right'] = true);
+document.getElementById('btnRight').addEventListener('touchend', () => keys['right'] = false);
+document.getElementById('btnGas').addEventListener('touchstart', () => keys['gas'] = true);
+document.getElementById('btnGas').addEventListener('touchend', () => keys['gas'] = false);
+document.getElementById('btnBrake').addEventListener('touchstart', () => keys['brake'] = true);
+document.getElementById('btnBrake').addEventListener('touchend', () => keys['brake'] = false);
+
+document.addEventListener('keydown', e => {
+  if(e.key === 'ArrowLeft') keys['left'] = true;
+  if(e.key === 'ArrowRight') keys['right'] = true;
+  if(e.key === 'ArrowUp') keys['gas'] = true;
+  if(e.key === 'ArrowDown') keys['brake'] = true;
+});
+document.addEventListener('keyup', e => {
+  if(e.key === 'ArrowLeft') keys['left'] = false;
+  if(e.key === 'ArrowRight') keys['right'] = false;
+  if(e.key === 'ArrowUp') keys['gas'] = false;
+  if(e.key === 'ArrowDown') keys['brake'] = false;
+});
+
+loop();
+</script>
+</body>
+  </html>
